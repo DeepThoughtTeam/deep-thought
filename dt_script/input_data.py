@@ -17,7 +17,6 @@ def maybe_download(filename, work_directory):
         print 'Succesfully downloaded', filename, statinfo.st_size, 'bytes.'
     return filepath
 
-
 def _read32(bytestream):
     dt = numpy.dtype(numpy.uint32).newbyteorder('>')
     return numpy.frombuffer(bytestream.read(4), dtype=dt)
