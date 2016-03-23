@@ -1,11 +1,45 @@
 '''
-	run_mlp takes size of hidden layer 
+	run_mlp:
+	when load a model, need to specify the shape of model
 '''
 
 import tensorflow as tf
 import numpy as np
 import input_data
 import sys
+
+class INPUT_FLAG:
+	def __init__(self):
+		self.input_dim, self.trX, self.trY, self.teX, self.teY = \
+		None, None, None, None, None
+
+def update_data_flag(
+	input_flag, 
+	train_dir = "", 
+	test_dir = "", 
+	opt = "", 
+	output_dim = 2, 
+	one_hot = True):
+
+	if opt == "mnist" or opt == "MNIST":
+		mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+		input_flag.trX, input_flag.trY, input_flag.teX, input_flag.teY = \
+		mnist.train.images, mnist.train.labels, mnist.test.images, mnist.test.labels
+	else:
+		train_data, test_data = np.loadtxt(open(train_dir,"rb"), delimiter=",", \
+			dtype=int), np.loadtxt(open(test_dir,"rb"), delimiter=",", dtype=int)
+		input_flag.trX, input_flag.trY, input_flag.teX, input_flag.teY = \
+		train_data[:, :-1], train_data[:, -1], test_data[:, :-1], test_data[:, -1]
+		if one_hot:
+			temp_tr, temp_te = np.zeros((len(input_flag.trY), output_dim)), \
+			np.zeros((len(input_flag.teY), output_dim))
+			temp_tr[np.arange(len(input_flag.trY)), input_flag.trY] = 1
+			temp_te[np.arange(len(input_flag.teY)), input_flag.teY] = 1
+			input_flag.trY, input_flag.teY = temp_tr, temp_te
+	input_flag.input_dim = np.size(input_flag.trX, 1)
+
+def test(input_flag):
+	update_data_flag(input_flag, "sample_train.txt", "sample_train.txt", opt = "mnist")
 
 def init_weights(shape):
     return tf.Variable(tf.random_normal(shape, stddev=0.01))
@@ -16,32 +50,30 @@ def model(X, w_hs, w_o):
     	h = tf.nn.sigmoid(tf.matmul(h, w_h))
     return tf.matmul(h, w_o)
 
-def update_data_flag(INPUT_DATA_FLAG, train_dir = "", test_dir = "", opt = "mnist"):
-	# return: INPUT_DATA_FLAG.trX, INPUT_DATA_FLAG.trY, INPUT_DATA_FLAG.teX, INPUT_DATA_FLAG.teY
-	# read as csv, then check dimension
-	if opt == "mnist":
-		mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-		INPUT_DATA_FLAG.trX, INPUT_DATA_FLAG.trY, INPUT_DATA_FLAG.teX, INPUT_DATA_FLAG.teY = mnist.train.images, 
-		mnist.train.labels, mnist.test.images, mnist.test.labels
-	else:
-		train_data, test_data = np.loadtxt(open(train_dir,"rb"), delimiter=","), 
-		np.loadtxt(open(test_dir,"rb"), delimiter=",")
-	return 0
 
-def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001, num_iter = 5, 
-	saved_model_path = "model.ckpt", mode = "train", output_file = "out_file"):
-	mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-	trX, trY, teX, teY = mnist.train.images, mnist.train.labels, mnist.test.images, mnist.test.labels
-	'''
-		trX, trY, teX, teY
-		input_dim, output_dim
-	'''
-	# trX = np.array([[0,0],[0,1],[1,0],[1,1]])
-	# trY = np.array([[1, 0], [0, 1], [0, 1], [1, 0]])
-	# teX = trX
-	# teY = trY
-	# input_dim = 2
-	# output_dim = 2
+'''
+	warning: when run XOR experiment, num_iter should be large
+'''
+def run_mlp(hidden_weights = [12], 
+	lr = 0.002, 
+	num_iter = 5, 
+	train_dir = "", 
+	test_dir = "",
+	output_dim = 2, 
+	saved_model_path = "model.ckpt", 
+	mode = "train", 
+	output_file = "out_file", 
+	opt = "user_data"):
+
+	input_flag = INPUT_FLAG()
+	if opt == "mnist":
+		output_dim = 10
+		update_data_flag(input_flag, "", "", opt, output_dim, one_hot = True)
+	else:
+		update_data_flag(input_flag, train_dir, test_dir, output_dim, one_hot = True)
+	
+	trX, trY, teX, teY, input_dim = input_flag.trX, input_flag.trY, \
+	input_flag.teX, input_flag.teY, input_flag.input_dim
 	X = tf.placeholder("float", [None, input_dim])
 	Y = tf.placeholder("float", [None, output_dim])
 	w_hs = []
@@ -64,13 +96,18 @@ def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001,
 		sys.stdout = out
 		if mode == "test":
 			saver.restore(sess, saved_model_path)
-			print np.mean(np.argmax(trY, axis=1) == sess.run(predict_op, feed_dict={X: trX, Y: trY}))
+			print np.mean(np.argmax(teY, axis=1) == \
+				sess.run(predict_op, feed_dict={X: teX, Y: teY}))
 		elif mode == "train":
 			for i in range(num_iter):
-			    for start, end in zip(range(0, len(trX), 128), range(128, len(trX), 128)):
-			        sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
-			    print i, np.mean(np.argmax(trY, axis=1) ==
-			                     sess.run(predict_op, feed_dict={X: trX, Y: trY}))
+				if opt == "mnist" or opt == "MNIST":
+					for start, end in zip(range(0, len(trX), 50), range(50, len(trX), 50)):\
+					sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
+				else:
+					sess.run(train_op, feed_dict={X: trX, Y: trY})
+				
+				print i, np.mean(np.argmax(trY, axis=1) == \
+					sess.run(predict_op, feed_dict={X: trX, Y: trY}))
 			saver.save(sess, saved_model_path)   
 		else:
 			fsock = open('error.log', 'w')
@@ -78,9 +115,19 @@ def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001,
 			raise ValueError('Unidentified Option!')
 
 def main():
-	sys_out = sys.stdout
-	hidden_weights = [200, 35, 23]
-	run_mlp(784, 10, hidden_weights, 0.005, mode = "test")
+	# MNIST
+	hidden_weights = [300, 65, 20]
+	# # train
+	# run_mlp(hidden_weights, num_iter = 5, mode = "train", opt = "mnist")
+	# # test
+	run_mlp(hidden_weights, num_iter = 5, mode = "test", opt = "mnist")
+
+	# # XOR
+	# hidden_weights = [6]
+	# # train
+	# # run_mlp(hidden_weights, num_iter = 10000, train_dir = "sample_train.txt", test_dir = "sample_train.txt", output_dim = 2, mode = "train")
+	# # test
+	# run_mlp(hidden_weights, train_dir = "sample_train.txt", test_dir = "sample_train.txt", output_dim = 2, mode = "test")
 
 if __name__ == "__main__":
 	main()
