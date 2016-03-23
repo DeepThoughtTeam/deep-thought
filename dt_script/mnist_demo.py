@@ -28,7 +28,7 @@ def update_data_flag(INPUT_DATA_FLAG, train_dir = "", test_dir = "", opt = "mnis
 		np.loadtxt(open(test_dir,"rb"), delimiter=",")
 	return 0
 
-def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001, num_iter = 10, 
+def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001, num_iter = 5, 
 	saved_model_path = "model.ckpt", mode = "train", output_file = "out_file"):
 	mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 	trX, trY, teX, teY = mnist.train.images, mnist.train.labels, mnist.test.images, mnist.test.labels
@@ -37,7 +37,7 @@ def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001,
 		input_dim, output_dim
 	'''
 	# trX = np.array([[0,0],[0,1],[1,0],[1,1]])
-	# trY = np.array([0,1,1,0])
+	# trY = np.array([[1, 0], [0, 1], [0, 1], [1, 0]])
 	# teX = trX
 	# teY = trY
 	# input_dim = 2
@@ -51,27 +51,27 @@ def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001,
 
 	w_o = init_weights([hidden_weights[-1], output_dim])
 	py_x = model(X, w_hs, w_o)
+	
 	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(py_x, Y))
 	# construct an optimizer, choice of learning rate
 	train_op = tf.train.RMSPropOptimizer(lr, 0.9).minimize(cost)
 	predict_op = tf.argmax(py_x, 1)
 	saver = tf.train.Saver()
 	sess = tf.Session()
-	init = tf.initialize_all_variables()
-	sess.run(init)
+	sess.run(tf.initialize_all_variables())
 
 	with open('output.txt','w') as out:
 		sys.stdout = out
 		if mode == "test":
 			saver.restore(sess, saved_model_path)
-			print np.mean(np.argmax(teY, axis=1) == sess.run(predict_op, feed_dict={X: teX, Y: teY}))
+			print np.mean(np.argmax(trY, axis=1) == sess.run(predict_op, feed_dict={X: trX, Y: trY}))
 		elif mode == "train":
-			saved = saver.save(sess, saved_model_path)
 			for i in range(num_iter):
 			    for start, end in zip(range(0, len(trX), 128), range(128, len(trX), 128)):
 			        sess.run(train_op, feed_dict={X: trX[start:end], Y: trY[start:end]})
 			    print i, np.mean(np.argmax(trY, axis=1) ==
 			                     sess.run(predict_op, feed_dict={X: trX, Y: trY}))
+			saver.save(sess, saved_model_path)   
 		else:
 			fsock = open('error.log', 'w')
 			sys.stderr = fsock
@@ -80,7 +80,7 @@ def run_mlp(input_dim = 784, output_dim = 10, hidden_weights = [12], lr = 0.001,
 def main():
 	sys_out = sys.stdout
 	hidden_weights = [200, 35, 23]
-	run_mlp(784, 10, hidden_weights, 0.005, mode = "train")
+	run_mlp(784, 10, hidden_weights, 0.005, mode = "test")
 
 if __name__ == "__main__":
 	main()
