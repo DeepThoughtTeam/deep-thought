@@ -12,3 +12,5 @@ node_modules
 /util/python/python_lib
 *.gz
 *.pyc
+*.pckl
+dt_script/test.py
