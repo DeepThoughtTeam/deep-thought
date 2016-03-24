@@ -6,7 +6,7 @@
 import tensorflow as tf
 import numpy as np
 import input_data
-import sys
+import sys, pickle
 
 class INPUT_FLAG:
 	def __init__(self):
@@ -54,7 +54,8 @@ def model(X, w_hs, w_o):
 '''
 	warning: when run XOR experiment, num_iter should be large
 '''
-def run_mlp(hidden_weights = [12], 
+def run_mlp(
+	hidden_weights = [12], 
 	lr = 0.002, 
 	num_iter = 5, 
 	train_dir = "", 
@@ -108,7 +109,13 @@ def run_mlp(hidden_weights = [12],
 				
 				print i, np.mean(np.argmax(trY, axis=1) == \
 					sess.run(predict_op, feed_dict={X: trX, Y: trY}))
+			# save session
 			saver.save(sess, saved_model_path)   
+			# save weights as pickle
+			weights = sess.run(w_hs)
+			weights.append(sess.run(w_o))
+			with open('weights.pckl', 'w') as f:
+				pickle.dump(weights, f)
 		else:
 			fsock = open('error.log', 'w')
 			sys.stderr = fsock
