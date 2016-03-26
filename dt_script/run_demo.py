@@ -82,8 +82,11 @@ def run_mlp(
 	
 	trX, trY, teX, teY, input_dim = input_flag.trX, input_flag.trY, \
 	input_flag.teX, input_flag.teY, input_flag.input_dim
+	
 	X = tf.placeholder("float", [None, input_dim])
 	Y = tf.placeholder("float", [None, output_dim])
+	
+	# if mode == "train":
 	w_hs = []
 	w_hs.append(init_weights([input_dim, hidden_weights[0]]))
 	for i in xrange(len(hidden_weights)-1):
@@ -96,11 +99,12 @@ def run_mlp(
 	# construct an optimizer, choice of learning rate
 	train_op = tf.train.RMSPropOptimizer(lr, 0.9).minimize(cost)
 	predict_op = tf.argmax(py_x, 1)
-	saver = tf.train.Saver(tf.trainable_variables())
+	
+	saver = tf.train.Saver()
 	sess = tf.Session()
 	sess.run(tf.initialize_all_variables())
 
-	with open('output.txt','w') as out:
+	with open(output_file,'w') as out:
 		sys.stdout = out
 		if mode == "test":
 			saver.restore(sess, saved_model_path)
@@ -137,28 +141,33 @@ def main():
 	# 	num_iter = 5, 
 	# 	mode = "test", 
 	# 	opt = "mnist", 
-	# 	saved_model_path = "model.ckpt")
+	# 	saved_model_path = "model.ckpt",
+	# output_file = "output.txt")
 
 	# XOR
 	hidden_weights = [6]
 	
-	# train
-	run_mlp(
-		hidden_weights, 
-		num_iter = 10000, 
-		train_dir = "sample_train.txt", 
-		output_dim = 2, 
-		mode = "train", 
-		saved_model_path = "model.ckrpt", 
-		saved_weights_path = "weights.pckl")
-
-	# # test
+	# # train
 	# run_mlp(
 	# 	hidden_weights, 
-	# 	test_dir = "sample_train.txt", 
-	# 	saved_model_path = "model.ckpt", 
+	# 	num_iter = 10000, 
+	# 	train_dir = "sample_train.txt", 
 	# 	output_dim = 2, 
-	# 	mode = "test")
+	# 	mode = "train", 
+	# 	saved_model_path = "model.ckpt", 
+	# 	saved_weights_path = "weights.pckl",
+	# 	output_file = "output.txt"
+	# 	)
+
+	# test
+	run_mlp(
+		hidden_weights,
+		test_dir = "sample_train.txt", 
+		saved_model_path = "model.ckpt", 
+		output_dim = 2, 
+		mode = "test",
+		output_file = "output.txt"
+		)
 
 if __name__ == "__main__":
 	main()
