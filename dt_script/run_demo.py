@@ -18,28 +18,34 @@ def update_data_flag(
 	train_dir = "", 
 	test_dir = "", 
 	opt = "", 
-	output_dim = 2, 
-	one_hot = True):
+	output_dim = 2,
+	mode = "train"):
 
 	if opt == "mnist" or opt == "MNIST":
 		mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 		input_flag.trX, input_flag.trY, input_flag.teX, input_flag.teY = \
 		mnist.train.images, mnist.train.labels, mnist.test.images, mnist.test.labels
 	else:
-		train_data, test_data = np.loadtxt(open(train_dir,"rb"), delimiter=",", \
-			dtype=int), np.loadtxt(open(test_dir,"rb"), delimiter=",", dtype=int)
-		input_flag.trX, input_flag.trY, input_flag.teX, input_flag.teY = \
-		train_data[:, :-1], train_data[:, -1], test_data[:, :-1], test_data[:, -1]
-		if one_hot:
-			temp_tr, temp_te = np.zeros((len(input_flag.trY), output_dim)), \
-			np.zeros((len(input_flag.teY), output_dim))
-			temp_tr[np.arange(len(input_flag.trY)), input_flag.trY] = 1
+		if mode == "train":
+			train_data = np.loadtxt(open(train_dir,"rb"), delimiter=",", dtype=int)
+			input_flag.trX, input_flag.trY = train_data[:, :-1], train_data[:, -1]
+			temp_tr = np.zeros((len(input_flag.trY), output_dim))
+			temp_tr[np.arange(len(input_flag.trY)), input_flag.trY] = 1	
+			input_flag.trY = temp_tr
+			input_flag.teX, input_flag.teY = input_flag.trX, input_flag.trY
+		elif mode == "test":	
+			test_data = np.loadtxt(open(test_dir,"rb"), delimiter=",", dtype=int)
+			input_flag.teX, input_flag.teY = test_data[:, :-1], test_data[:, -1]
+			temp_te = np.zeros((len(input_flag.teY), output_dim))
 			temp_te[np.arange(len(input_flag.teY)), input_flag.teY] = 1
-			input_flag.trY, input_flag.teY = temp_tr, temp_te
-	input_flag.input_dim = np.size(input_flag.trX, 1)
+			input_flag.teY = temp_te
+	input_flag.input_dim = np.size(input_flag.teX, 1)
 
-def test(input_flag):
-	update_data_flag(input_flag, "sample_train.txt", "sample_train.txt", opt = "mnist")
+
+def test_update():
+	input_flag = INPUT_FLAG()
+	mode = "train"
+	update_data_flag(input_flag, train_dir = "sample_train.txt", output_dim = 2, mode = mode)
 
 def init_weights(shape):
     return tf.Variable(tf.random_normal(shape, stddev=0.01))
@@ -61,7 +67,8 @@ def run_mlp(
 	train_dir = "", 
 	test_dir = "",
 	output_dim = 2, 
-	saved_model_path = "model.ckpt", 
+	saved_model_path = "model.ckpt",
+	saved_weights_path = "weights.pckl",
 	mode = "train", 
 	output_file = "out_file", 
 	opt = "user_data"):
@@ -69,9 +76,9 @@ def run_mlp(
 	input_flag = INPUT_FLAG()
 	if opt == "mnist":
 		output_dim = 10
-		update_data_flag(input_flag, "", "", opt, output_dim, one_hot = True)
+		update_data_flag(input_flag, "", "", opt, output_dim)
 	else:
-		update_data_flag(input_flag, train_dir, test_dir, output_dim, one_hot = True)
+		update_data_flag(input_flag, train_dir, test_dir, output_dim, mode = mode)
 	
 	trX, trY, teX, teY, input_dim = input_flag.trX, input_flag.trY, \
 	input_flag.teX, input_flag.teY, input_flag.input_dim
@@ -89,7 +96,7 @@ def run_mlp(
 	# construct an optimizer, choice of learning rate
 	train_op = tf.train.RMSPropOptimizer(lr, 0.9).minimize(cost)
 	predict_op = tf.argmax(py_x, 1)
-	saver = tf.train.Saver()
+	saver = tf.train.Saver(tf.trainable_variables())
 	sess = tf.Session()
 	sess.run(tf.initialize_all_variables())
 
@@ -114,7 +121,7 @@ def run_mlp(
 			# save weights as pickle
 			weights = sess.run(w_hs)
 			weights.append(sess.run(w_o))
-			with open('weights.pckl', 'w') as f:
+			with open(saved_weights_path, 'w') as f:
 				pickle.dump(weights, f)
 		else:
 			fsock = open('error.log', 'w')
@@ -122,19 +129,36 @@ def run_mlp(
 			raise ValueError('Unidentified Option!')
 
 def main():
-	# MNIST
-	hidden_weights = [300, 65, 20]
-	# # train
-	# run_mlp(hidden_weights, num_iter = 5, mode = "train", opt = "mnist")
-	# # test
-	run_mlp(hidden_weights, num_iter = 5, mode = "test", opt = "mnist")
+	# # MNIST
+	# hidden_weights = [300, 65, 20]
+	# # train / test
+	# run_mlp(
+	# 	hidden_weights, 
+	# 	num_iter = 5, 
+	# 	mode = "test", 
+	# 	opt = "mnist", 
+	# 	saved_model_path = "model.ckpt")
 
-	# # XOR
-	# hidden_weights = [6]
-	# # train
-	# # run_mlp(hidden_weights, num_iter = 10000, train_dir = "sample_train.txt", test_dir = "sample_train.txt", output_dim = 2, mode = "train")
+	# XOR
+	hidden_weights = [6]
+	
+	# train
+	run_mlp(
+		hidden_weights, 
+		num_iter = 10000, 
+		train_dir = "sample_train.txt", 
+		output_dim = 2, 
+		mode = "train", 
+		saved_model_path = "model.ckrpt", 
+		saved_weights_path = "weights.pckl")
+
 	# # test
-	# run_mlp(hidden_weights, train_dir = "sample_train.txt", test_dir = "sample_train.txt", output_dim = 2, mode = "test")
+	# run_mlp(
+	# 	hidden_weights, 
+	# 	test_dir = "sample_train.txt", 
+	# 	saved_model_path = "model.ckpt", 
+	# 	output_dim = 2, 
+	# 	mode = "test")
 
 if __name__ == "__main__":
 	main()
